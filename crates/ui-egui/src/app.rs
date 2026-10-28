@@ -420,6 +420,7 @@ impl LauncherUi {
             kinds: self.settings.preferred_kinds.clone(),
             prereleases: self.settings.prereleases,
             install_locations: self.settings.install_locations.clone(),
+            auto_check: self.settings.check_every.seconds().is_some(),
         };
         if self.sent_options.as_ref() != Some(&options) {
             self.backend.send(Command::Configure(options.clone()));
@@ -455,6 +456,7 @@ impl LauncherUi {
         self.configure();
         if !self.started {
             self.started = true;
+            // "Only when I ask" means no check the user did not ask for, at startup too (#929).
             if self.settings.check_every.seconds().is_some() {
                 self.backend.send(Command::CheckForUpdates { force: false });
             }
@@ -1085,6 +1087,8 @@ mod tests {
         launcher.logic(&ctx, &mut NoHost);
         launcher.logic(&ctx, &mut NoHost);
         assert_eq!(checks(&sent), 0, "no check without the user asking: {:?}", sent.borrow());
+        // The backend is told too, so a saved pre-release choice starts no check either.
+        assert!(sent.borrow().iter().any(|c| matches!(c, Command::Configure(o) if !o.auto_check)));
         // Asking still works.
         launcher.check_now();
         assert_eq!(checks(&sent), 1);
